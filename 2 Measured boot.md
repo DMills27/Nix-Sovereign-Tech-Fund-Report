@@ -1,6 +1,6 @@
-The Lanzaboot project [https://github.com/nix-community/lanzaboote] implemented a secure boot feature in NixOS however its implementation is somewhat unsatisfactory in the sense that, in its current state, there are drawbacks, which hinder it being integrated as an upstream feature, such as:
+The Lanzaboote project [https://github.com/nix-community/lanzaboote] implemented a secure boot feature in NixOS however its implementation is somewhat unsatisfactory in the sense that, in its current state, there are drawbacks, which hinder it being integrated as an upstream feature, such as:
 
-Lanzaboot is mainly implemented using a specification “modification” of the Unified Kernel Image (UKI). A Unified Kernel Image (UKI) is a single, unified file that includes everything a computer needs to start and run a Linux distribution. It combines a bootloader, the Linux kernel, some initial resources, and more into a single file. The most important of these initial resources is the .initrd file, which we will go into greater detail shortly. [Go into greater detail about this “specification hack”]
+1. Lanzaboot is mainly implemented using a specification “modification” of the Unified Kernel Image (UKI). A Unified Kernel Image (UKI) is a single, unified file that includes everything a computer needs to start and run a Linux distribution. It combines a bootloader, the Linux kernel, some initial resources, and more into a single file. The most important of these initial resources is the .initrd file, which we will go into greater detail shortly. [Go into greater detail about this “specification hack”]
 https://github.com/uapi-group/specifications/blob/main/specs/unified_kernel_image.md  
 The way in which Lanzaboot is applied requires one to first install NixOS via an insecure boot then install Lanzaboot to have secure boot in effect. This is undesirable and ideally we should have boot security by default when installing NixOS for the first time.This video goes into greater details of this process: Secure Boot On NixOS - Lanzaboote
 
@@ -22,3 +22,4 @@ Unlike Secure Boot, Measured Boot has a hardware dependency – Trusted Platform
 
 Measured Boot records a hash of each system component onto the Trusted Platform Module 2.0 (TPM2) as the system boots. This entails measuring each component, using memory locations called Platform Configuration Registers, from the firmware to the boot start drivers, which are then hashed. These measurements are then securely stored in the TPM2, and a log is produced, facilitating remote verification of the client's boot state.
 
+![My animated logo](images/boot.png)
