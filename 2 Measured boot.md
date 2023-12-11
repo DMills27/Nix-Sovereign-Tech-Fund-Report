@@ -1,8 +1,8 @@
-The Lanzaboote project [https://github.com/nix-community/lanzaboote] implemented a secure boot feature in NixOS however its implementation is somewhat unsatisfactory in the sense that, in its current state, there are drawbacks, which hinder it being integrated as an upstream feature, such as:
+The [Lanzaboote project](https://github.com/nix-community/lanzaboote) implemented a secure boot feature in NixOS however its implementation is somewhat unsatisfactory in the sense that, in its current state, there are drawbacks, which hinder it being integrated as an upstream feature, such as:
 
 1. Lanzaboot is mainly implemented using a specification “modification” of the Unified Kernel Image (UKI). A Unified Kernel Image (UKI) is a single, unified file that includes everything a computer needs to start and run a Linux distribution. It combines a bootloader, the Linux kernel, some initial resources, and more into a single file. The most important of these initial resources is the .initrd file, which we will go into greater detail shortly. [Go into greater detail about this “specification hack”]
 https://github.com/uapi-group/specifications/blob/main/specs/unified_kernel_image.md  
-The way in which Lanzaboot is applied requires one to first install NixOS via an insecure boot then install Lanzaboot to have secure boot in effect. This is undesirable and ideally we should have boot security by default when installing NixOS for the first time.This video goes into greater details of this process: Secure Boot On NixOS - Lanzaboote
+2. The way in which Lanzaboot is applied requires one to first install NixOS via an insecure boot then install Lanzaboot to have secure boot in effect. This is undesirable and ideally we should have boot security by default when installing NixOS for the first time.
 
 Relevant PRs
 boot: load addons from systemd-boot Type 1 entries systemd/systemd#28057
@@ -12,9 +12,6 @@ In order to overcome this specification “modification,” upstream features, l
 https://www.reddit.com/r/systemd/comments/rgbn3z/eli5_whats_the_difference_between_systemdstub_and
 
 With addons, one can separate the command line or create variations of an image. Each addon can be signed independently. The responsibility of handling this separation falls on the systemd stub, which is similar to Lanzaboote is a specialised bootloader designed for a specific kernel and image ID. A systemd-stub, is distinct from systemd-boot, which is a versatile bootloader for any generation. A systemd-stub is a purpose-built bootloader designed to boot only a specific kernel and initrd. As we align with the Lanzaboote style, systemd stub will be extended to support separated initrds and kernels. Additionally, work is being done on establishing a connection between systemd-boot and systemd-stub by creating a UEFI protocol for communication with the addons they recognize.
-
-[Go into greater how these upstream features are implemented]
-
 
 While secure boot provides a greater degree of security, it is still susceptible to attacks such as rootkits, which can conceal their presence or the presence of other undesirable software on a computer, or Direct Memory Access (DMA) attacks, which can inject code into memory during the boot process. We can gain a greater level of security through an extra layer of security called Measured Boot. 
 

@@ -13,9 +13,9 @@ This now begs the question: Having already mentioned security boot what other se
 
 Moreover, it is often the case that secure boot story is not so straightforward for many Linux distributions mainly for the following three reasons: 
 
-Secure Boot requires that the bootloader (e.g., GRUB or Shim) and the kernel are signed with cryptographic keys recognized by the system's UEFI firmware. Many Linux distributions provide unsigned versions of these components, which may not be compatible with Secure Boot.
-Some UEFI firmware implementations only include Microsoft's signing key by default. This means that only bootloaders and kernels signed with Microsoft's key will be allowed to run in Secure Boot mode. Linux distributions often use their own keys, which may not be present in all systems.
-While major Linux distributions, like Ubuntu and Fedora, have made efforts to support Secure Boot by signing their bootloaders with Microsoft's key, there could still be variations across distributions. Some smaller or specialized distributions may not have taken these steps.
+1. Secure Boot requires that the bootloader (e.g., GRUB or Shim) and the kernel are signed with cryptographic keys recognized by the system's UEFI firmware. Many Linux distributions provide unsigned versions of these components, which may not be compatible with Secure Boot.
+2. Some UEFI firmware implementations only include Microsoft's signing key by default. This means that only bootloaders and kernels signed with Microsoft's key will be allowed to run in Secure Boot mode. Linux distributions often use their own keys, which may not be present in all systems.
+3. While major Linux distributions, like Ubuntu and Fedora, have made efforts to support Secure Boot by signing their bootloaders with Microsoft's key, there could still be variations across distributions. Some smaller or specialized distributions may not have taken these steps.
 
 The last point in particular is the intended goal of this project which is to realise increased security in the boot process for the NixOS operating system that also is done in a manner that also takes into consideration the above steps of 2 and 3. 
 
