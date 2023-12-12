@@ -1,4 +1,6 @@
-In the ongoing efforts to ensure the security of NixOS systems configured with secure boot, the primary objective is to extend the verification process to include the system closure on the Nix-store partition or filesystem. This is crucial for maintaining the integrity of the entire system, considering that existing tools like Lanzaboote, systemd, and UEFI handle various stages of verification but lack a comprehensive check on the system closure of stage 2.
+## Integrity checks for the Nix store
+
+In the ongoing efforts to ensure the greater security of Nixpkgs and the NixOS operating system, we aim to introduce a verification process to include the system closure on the Nix-store partition or filesystem. This is crucial for maintaining the integrity of the entire system, considering that existing tools like Lanzaboote, systemd, and UEFI handle various stages of verification but lack a comprehensive check on the system closure of the stage 2 boot process.
 
 The proposed solution involves leveraging the nix-store verify command within the standalone Nix command. By doing so, it establishes an efficient and reliable method to verify all software components within the system closure without resorting to duplicating disk images. Notably, this approach distinguishes itself from alternatives like dm-verity, which poses limitations on highly immutable filesystems like NixOS.
 
