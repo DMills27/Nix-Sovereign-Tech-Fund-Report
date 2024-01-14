@@ -1,4 +1,4 @@
--- This would go in the Development section under "Building Specific Parts of NixOS"
+-- This would go in the Development section under "Building Specific Parts of NixOS" in the NixOS  manual.
 
 # Understanding Enhanced Security Features in NixOS
 
@@ -6,9 +6,9 @@
 
 NixOS differs from more traditional Linux distributions in a number of ways due to its declarative nature. Perhaps, the most visible of these differences is the inclusion of NixOS generations in the bootloader upon starting one's machine. Whereas with other Linux distributions one would see a choice of one or more operating systems to boot from, NixOS allows one to access the various (older) stages of its operating system every time its configuration file is changed and the system is rebuilt.
 
-## Secure boot
-
 However, even before getting to this point one might ask how secure is the process leading up to the stage of the bootloader becoming active and thereafter?
+
+## Secure boot
 
 By default, NixOS, like other Linux distributions, requires a security feature called Secure Boot to be disabled, upon initial installation, which leaves it susceptible to attacks such as bootkits, that can gain unauthorised access to a system during the boot process. The Secure Boot process ensures that only signed and trusted code is executed during the system startup, guarding against unauthorized or malicious software.
 
