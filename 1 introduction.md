@@ -1,3 +1,5 @@
+## Introduction
+
 When turning on your computer, you might wonder what takes place during the initial start-up process. As it turns out, quite a bit is happening in the background and usually this is the order of what takes place:
 
 1. Essential hardware components like the processor, memory, and storage are checked to be functioning properly through a self-diagnostic process called Power-On Self-Test (POST).
