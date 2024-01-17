@@ -6,9 +6,9 @@
 
 Increasing security within NixOS and Nixpkgs is vital for wider adoption. The Nix ecosystem faces unique challenges due its declarative nature which sets it apart from other Linux distributions, and requires more nuanced and novel approaches to deal with issues related to security, in particular. Perhaps, the most visible of these differences is the inclusion of NixOS generations in the bootloader upon starting one's machine, which allows one to choose from various (older) stages of the operating system every time the configuration file is changed and the system is rebuilt. This might lead one to ask questions such as:
 - Does the inclusion of generations increase the number of potential vulnerabilties that a potential attacker can exploit? 
-- What mechanisms are in place to ensure vulnerabilties one can exploit when switching from an older generation to a newer one? 
+- What mechanisms are in place to ensure potential vulnerabilties from an existing generation don't propagate to a newer ones as they are generated? 
 
-However, even before getting to this point one might ask questions such as:
+However, even before getting to this point one might inquire:
 how secure is the process leading up to the bootloader becoming active and thereafter? Moreover, what processes are in place to ensure the accuracy, consistency and reliabilty of data being sent between Stage 1 and Stage 2 of the boot process, that is, what are so-called Integrity Checks in place? Here Stage 1 and Stage 2 refer to the processes for booting the Linux kernel, which comprise of details such as the kernel image, initrd (initial ramdisk), and kernel parameters for initiating the operating system (Stage 1), as well as, booting other bootloaders or operating systems, by pointing to a specific Extensible Firmware Interface (EFI) binary or bootloader, and are not necessarily limited to booting Linux operating systems (Stage 2). Furthermore, the dynamic nature of the interpreted languages that NixOS sometimes uses (Python, Perl and Bash) in the background allows for runtime flexibility but also introduces potential security risks, as the interpreter must handle and execute code in real-time.  We detail the mechanisms in place to deal with issues in the forthcoming sub-sections.  
 
 
