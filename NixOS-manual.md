@@ -4,9 +4,13 @@
 
 -- Write a better intro that details the various security features being discussed and how they interrelate to one another.
 
-NixOS differs from more traditional Linux distributions in a number of ways due to its declarative nature. Perhaps, the most visible of these differences is the inclusion of NixOS generations in the bootloader upon starting one's machine. Whereas with other Linux distributions one would see a choice of one or more operating systems to boot from, NixOS allows one to access the various (older) stages of its operating system every time its configuration file is changed and the system is rebuilt.
+Increasing security within NixOS and Nixpkgs is vital for wider adoption. The Nix ecosystem faces unique challenges due its declarative nature which sets it apart from other Linux distributions, and requires more nuanced and novel approaches to deal with issues related to security, in particular. Perhaps, the most visible of these differences is the inclusion of NixOS generations in the bootloader upon starting one's machine, which allows one to choose from various (older) stages of the operating system every time the configuration file is changed and the system is rebuilt. This might lead one to ask questions such as:
+- Does the inclusion of generations increase the number of potential vulnerabilties that a potential attacker can exploit? 
+- What mechanisms are in place to ensure vulnerabilties one can exploit when switching from an older generation to a newer one? 
 
-However, even before getting to this point one might ask how secure is the process leading up to the stage of the bootloader becoming active and thereafter?
+However, even before getting to this point one might ask questions such as:
+how secure is the process leading up to the bootloader becoming active and thereafter? Moreover, what processes are in place to ensure the accuracy, consistency and reliabilty of data being sent between Stage 1 and Stage 2 of the boot process, that is, what are so-called Integrity Checks in place? Here Stage 1 and Stage 2 refer to the processes for booting the Linux kernel, which comprise of details such as the kernel image, initrd (initial ramdisk), and kernel parameters for initiating the operating system (Stage 1), as well as, booting other bootloaders or operating systems, by pointing to a specific Extensible Firmware Interface (EFI) binary or bootloader, and are not necessarily limited to booting Linux operating systems (Stage 2). Furthermore, the dynamic nature of the interpreted languages that NixOS sometimes uses (Python, Perl and Bash) in the background allows for runtime flexibility but also introduces potential security risks, as the interpreter must handle and execute code in real-time.  We detail the mechanisms in place to deal with issues in the forthcoming sub-sections.  
+
 
 ## Secure boot
 
@@ -21,9 +25,9 @@ This led to the development of a feature that would enable UEFI secure boot by d
 ## Measured Boot
 While secure boot provides a greater degree of security, it is still susceptible to attacks such as rootkits, which can conceal their presence or the presence of other undesirable software on a computer, or Direct Memory Access (DMA) attacks, which can inject code into memory during the boot process. We can gain a greater level of security through an extra layer of security called Measured Boot. 
 
-Unlike Secure Boot, Measured Boot has a hardware dependency – Trusted Platform Module 2.0 (TPM2). The TPM is typically a dedicated microcontroller integrated into a computer's motherboard or as a separate hardware component that provides a secure enclave for storing sensitive information, performing cryptographic operations, and enhancing overall system security.
-
 Measured Boot records a hash of each system component onto the Trusted Platform Module 2.0 (TPM2) as the system boots. This entails measuring each component, using memory locations called Platform Configuration Registers, from the firmware to the boot start drivers, which are then hashed. These measurements are then securely stored in the TPM2, and a log is produced, facilitating remote verification of the client's boot state.
+
+Unlike Secure Boot, Measured Boot has a hardware dependency – Trusted Platform Module 2.0 (TPM2). The TPM is typically a dedicated microcontroller integrated into a computer's motherboard or as a separate hardware component that provides a secure means for storing sensitive information, performing cryptographic operations, and enhancing overall system security.
 
 ## Bootspec V2
 
@@ -65,5 +69,6 @@ The PKCS#11 standard, though effective, is known for its complexity. To simplify
 The A/B schema in this context refers to general methodologies facilitating primary and secondary booting, involving the existence of two distinct boot partitions. During an upgrade, the updated content is written to the primary partition. In the event of a boot failure, the system automatically switches to the secondary partition, executing a rollback of the unsuccessful update. This conventional approach safeguards embedded systems from disruptions during upgrades by maintaining two separate boot partitions that are not simultaneously upgraded. Within NixOS and, more specifically, systemd-boot, a mechanism has been implemented that leverages the NixOS generation system to monitor boot occurrences and initiate automatic fallbacks. While not directly related to boot security, this feature is integral to the autonomy of systems on NixOS, impacting both boot functionality and overall security. Its presence is crucial, as it significantly influences users' willingness to engage in boot processes and system upgrades.
 
 ## Integrity checks in NixOS
+
 
 ## Interpreter-less Nix
