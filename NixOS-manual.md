@@ -9,12 +9,12 @@ Increasing security within NixOS and Nixpkgs is vital for wider adoption. The Ni
 - What mechanisms are in place to ensure potential vulnerabilties from an existing generation don't propagate to newer ones as they are generated? 
 
 However, even before getting to this point one might inquire:
-how secure is the process leading up to the bootloader becoming active and thereafter? Moreover, what processes are in place to ensure the accuracy, consistency and reliabilty of data being sent between Stage 1 and Stage 2 of the boot process, that is, what are the so-called Integrity Checks in place? Here Stage 1 and Stage 2 refer to the processes for booting the Linux kernel, which comprise of details such as the kernel image, initrd (initial ramdisk), and kernel parameters for initiating the operating system (Stage 1), as well as, booting other bootloaders or operating systems, by pointing to a specific Extensible Firmware Interface (EFI) binary or bootloader, and are not necessarily limited to booting Linux operating systems (Stage 2). Furthermore, the dynamic nature of the interpreted languages that NixOS sometimes uses (Python, Perl and Bash) in the background allows for runtime flexibility but also introduces potential security risks, as the interpreter must handle and execute code in real-time.  We detail the mechanisms in place to deal with issues in the forthcoming sub-sections.  
+how secure is the process leading up to the bootloader becoming active and thereafter? Moreover, what processes are in place to ensure the accuracy, consistency and reliabilty of data being sent between Stage 1 and Stage 2 of the boot process, that is, what are the so-called Integrity Checks in place? Here Stage 1 and Stage 2 refer to the processes for booting the Linux kernel, which comprise of establishing details such as the kernel image, initrd (initial ramdisk), and kernel parameters for initiating the operating system (Stage 1), as well as, booting other bootloaders or operating systems, by pointing to a specific Extensible Firmware Interface (EFI) binary or bootloader, and are not necessarily limited to booting Linux operating systems (Stage 2). Furthermore, the dynamic nature of the interpreted languages that NixOS sometimes uses (Python, Perl and Bash) in the background allows for runtime flexibility but also introduces potential security risks, as the interpreter must handle and execute code in real-time.  We detail the mechanisms in place to deal with the aforementioned issues and more in the following sub-sections.  
 
 
-## Secure boot
+## Secure Boot
 
-By default, NixOS, like other Linux distributions, requires a security feature called Secure Boot to be disabled, upon initial installation, which leaves it susceptible to attacks such as bootkits, that can gain unauthorised access to a system during the boot process. The Secure Boot process ensures that only signed and trusted code is executed during the system startup, guarding against unauthorized or malicious software.
+Orginally, NixOS, like other Linux distributions, required a security feature called Secure Boot to be disabled, upon initial installation, which left it susceptible to attacks such as bootkits, that can gain unauthorised access to a system during the boot process. The Secure Boot process ensures that only signed and trusted code is executed during the system startup, guarding against unauthorized or malicious software.
 
 Initally, the Lanzaboote project was developed to ameliorate this issue by providing a tool that facilitates the signing of custom Secure Boot components with user-defined keys, such as Microsoft keys. However, its implementation was unsatisfactory in the sense it required one to first install NixOS via an insecure boot then install Lanzaboote to have secure boot in effect when NixOS is subsequently booted. This was undesirable as ideally we should have boot security by default when installing NixOS for the first time.
 
@@ -51,7 +51,7 @@ Bootspec V1, the first iteration of Bootspec, dealt with a number of issues but 
 
 ## Portable executable binaries
 
-Portable Executable (PE) binaries refer to executable files that adhere to the PE file format. The PE format is a file structure used for executables, object code, DLLs (Dynamic Link Libraries), and other types of files used in Windows operating systems. PE files have a structured layout that includes different sections, each serving a specific purpose. The two primary types of sections are the "code section" and the "data section":
+Portable Executable (PE) binaries refer to executable files that adhere to the PE file format. The PE format is a file structure used for executables, object code, DLLs (Dynamic Link Libraries), and other types of files typically used in Windows operating systems. PE files have a structured layout that includes different sections, each serving a specific purpose. The two primary types of sections are the "code section" and the "data section":
 
 - **Code Section**: The code section contains the actual executable instructions or machine code that the computer's processor executes. The code section is marked as executable and read-only to ensure that the program's instructions are not modified during runtime.
 
@@ -61,14 +61,64 @@ Of particular interest is the data section which includes critical information s
 
 However, making changes to the internal structure of a Portable Executable (PE) file, can be quite challenging. As it often involves rewriting entire structures, such as headers or data sections, within the file. Additionally, adjusting these structures may require recalculating the positions of various components, such as section headers, due to space constraints. To tackle this complexity rather than directly modifying the PE structures, we propose the strategy of introducing a "meta-writer structure". This meta-writer structure doesn't belong to the original PE file but serves as a higher-level guide. It keeps track of essential information needed to recreate the existing PE file while also incorporating details about any new sections being introduced. Essentially, it acts as a helpful tool for managing the intricacies of modifying the PE file without the need for a complete overhaul of its internal structures. Moreover, the dynamic nature of this process necessitates reading and rewriting PE binaries, requiring a library designed for this purpose. Currently, the only available library is written in Go, while Lanzaboote is implemented in Rust. One of our objectives is to develop a secure, memory-efficient PE library to address this limitation.
 
-Our goals are to replace the existing complex library, Objcopy, and providing Rust-based functionality. Goblin, a Rust-based PE library, now supports PE write support. The subsequent challenge involves signing, which involves storing certificates and private keys, within the data section, securely. To achieve this, the industry-standard Public-Key Cryptography Standard #11 (PKCS#11) protocol is employed, allowing secure token storage (e.g., TPM2, YubiKey) and defining an API for signing operations.
+The existing library for writing PE binaries, Objcopy, was replaced with one that provided Rust-based functionality. Goblin, the Rust-based PE library, supports PE write support. The subsequent challenge involved signing, which in turn involves storing certificates and private keys, within the data section, securely. To achieve this, the industry-standard Public-Key Cryptography Standard #11 (PKCS#11) protocol was employed, allowing secure token storage (e.g., TPM2, YubiKey) and defining an API for signing operations.
 
 The PKCS#11 standard, though effective, is known for its complexity. To simplify the signing process, the Goblin Signing subcrate for Rust has been introduced. It not only streamlines the signing procedure but also adheres to Microsoft's signing scheme, a hierarchical code signing structure based on multiple certificates and certificate authorities. This intricate signing scheme requires careful handling, especially regarding file hashing to prevent vulnerabilities. Goblin Signing, as part of the upstream features, addresses these complexities, ensuring a robust and secure signing process in the UEFI and PE context.
 
 ## A/B Schema in NixOS
-The A/B schema in this context refers to general methodologies facilitating primary and secondary booting, involving the existence of two distinct boot partitions. During an upgrade, the updated content is written to the primary partition. In the event of a boot failure, the system automatically switches to the secondary partition, executing a rollback of the unsuccessful update. This conventional approach safeguards embedded systems from disruptions during upgrades by maintaining two separate boot partitions that are not simultaneously upgraded. Within NixOS and, more specifically, systemd-boot, a mechanism has been implemented that leverages the NixOS generation system to monitor boot occurrences and initiate automatic fallbacks. While not directly related to boot security, this feature is integral to the autonomy of systems on NixOS, impacting both boot functionality and overall security. Its presence is crucial, as it significantly influences users' willingness to engage in boot processes and system upgrades.
+A/B schema in this context refers to general methodologies for facilitating primary and secondary booting, which involves the existence of two distinct boot partitions. During an upgrade, updated content is written to the primary partition. In the event of a boot failure, the system automatically switches to the secondary partition, executing a rollback of the unsuccessful update. This conventional approach safeguards embedded systems from disruptions during upgrades by maintaining two separate boot partitions that are not simultaneously upgraded. Within NixOS and, more specifically, systemd-boot, a mechanism has been implemented that leverages the NixOS generation system to monitor boot occurrences and initiate automatic fallbacks. While not directly related to boot security, this feature is integral to the autonomy of systems on NixOS, impacting both boot functionality and overall security. Its presence is crucial, as it significantly influences users' willingness to engage in boot processes and system upgrades.
 
 ## Integrity checks in NixOS
 
+While there are ways to integrate Secure Boot with NixOS, they currently fall short when transitioning to Stage 2. The issue stems from the need to include a mechanism for verifying the operating system closure, that is, stored in the Nix store partition or file system. Currently, it is common to simply rely on disk encryption, such as Linux Unified Key Setup (LUKS), to keep the Nix store safe from tampering, but this is not always desirable, e.g. for devices that should boot unattended. Integrity checks are most useful where ensuring that critical files, block devices, and executables remain unaltered and trustworthy such as in environments where the protection of system integrity is a high priority, as in the case of certain embedded systems, servers, or devices that store sensitive data.
+
+There are a variety of tools built into the kernel that can be  considered for this purpose. However, they all come with various tradeoffs some of which include glaring drawbacks for our intented purposes. For instance, one might consider using dm-verity which is a block device layer that utilises a Merkle tree to validate every block by comparing it to an expected hash during reading. However, the drawback is that these block devices are read-only due to the challenge of atomically updating both the Merkle tree and the block device simultaneously. This results in each generation requiring an entire disk image leads to substantial space consumption and sluggish build and update processes. In the same vein, fs-verity is similar to dm-verity, except it operates at the file level, requiring support from the file system driver. While this approach seems promising in theory, it introduces its own set of challenges. Notably, fs-verity lacks the capability to verify the positions of files within the file system. In practical terms, this means it doesn't provide safeguards against unauthorised manipulation of file locations, such as swapping critical binaries like systemd and bash. This vulnerability could potentially be exploited, allowing an attacker to gain unauthorised access, for instance, by executing a shell as Process ID 1 (PID 1).
+
+Aside from dm-verity and fs-verity, there are also other tools such as Integrity Measurement Architecture (IMA) and Extended Verification Module (EVM) have essentially the same benefits and drawbacks as fs-verity does, for these purposes. They work at the file level, and they don’t verify the locations of files. It's worth noting that IMA has less flexibility due to its reliance on somewhat rigid policies, making it more suitable as an auditing and measurement tool rather than a comprehensive boot verification tool.
+
+Ultimately, the choosen design uses Nix’s own signature verification system to verify the system closure before transitioning to stage two. This was chosen for its relative simplicity, without compromising security. It’s also extremely easy to build and deploy, given that it’s already a feature of Nix itself.
+
+During the system's boot process, after the operating system's file  has been mounted, the Nix command-line interface is employed to systematically validate each path within the system closure, ensuring that it possesses a valid Nix signature. This verification process serves the purpose of establishing trust between the initial stage (stage 1) and the subsequent operating system (stage 2) that it is poised to transition to. Importantly, this trust is solidified before permitting the execution of any code from stage 2. The inclusion of this mechanism introduces new NixOS options, namely 
+
+- `boot.initrd.verify.enable`
+- `boot.initrd.verify.sigsNeeded`
+- `boot.initrd.verify.trustedPublicKeys`
+
+which can be used to configure which public keys stage 1 should trust, as well as how many of those keys need to have signed every individual path for that path to be trusted.
+
+These options control whether the system should sign its own closures when installing the boot loader. This is not done by default, with the assumption that the system closure is built and signed by a trusted builder:
+
+- `boot.initrd.verify.signing.enable`
+- `boot.initrd.verify.signing.keyFile`
+
+
+The implementation for these options are reflected in these files:
+- `nixos/modules/system/boot/initrd-verify.nix`  
+- `nixos/modules/system/boot/systemd/initrd.nix`
+
+If you enable this, ensure the key file is only accessible when absolutely necessary.
+
+An example of how this can be used is as follows:
+
+First, generate a signing key via the command:
+
+`nix-store --generate-binary-cache-key key-name secret-key-file public-key-file`
+
+In a NixOS module, configure stage 2 verification.
+
+```
+{
+  boot.initrd.verify = {
+    enable = true;
+    sigsNeeded = 1;
+    trustedPublicKeys = [(builtins.readFile ./public-key-file)];
+  };
+}
+```
+If this machine should self-deploy, then store the secret-key-file somewhere safe and encrypted, and configure the signing.enable and signing.keyFile options. Preferably, this file should only be accessible when it’s time to deploy an update.
+
+Otherwise, store this key on the system that will build the system closure, and configure its /etc/nix/nix.conf settings with secret-key-files pointing to the secret. When deploying, make sure to copy the closure’s signatures as well.
+
+Finally, this approach allows to continue using an ordinary Nix store file system, meaning no new disk images need to be constructed, and the system can be used like an ordinary NixOS system. New generations can be added without large storage requirements for every single one, because it’s just an ordinary Nix store. While it does verify stage 2, it does so by delaying boot to read and verify the entire closure. On a fast computer, this takes 5-10 seconds. On a slower system (e.g. a raspberry pi using an SD card for the OS), this can take a few minutes.
 
 ## Interpreter-less Nix
