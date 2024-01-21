@@ -23,7 +23,7 @@ This led to the development of a feature that would enable UEFI secure boot by d
 2. Then creating an ISO from the NixOS-shim that is then submitted for review by the shim-review committee which is a community-driven solution endorsed by Microsoft, allowing open-source contributors to request signature validation. 
 
 ## Measured Boot
-While secure boot provides a greater degree of security, it is still susceptible to attacks such as rootkits, which can conceal their presence or the presence of other undesirable software on a computer, or Direct Memory Access (DMA) attacks, which can inject code into memory during the boot process. We can gain a greater level of security through an extra layer of security called Measured Boot. 
+While Secure Boot provides a greater degree of security, it is still susceptible to attacks such as rootkits, which can conceal their presence or the presence of other undesirable software on a computer, or Direct Memory Access (DMA) attacks, which can inject code into memory during the boot process. We can gain a greater level of security through an extra layer of security called Measured Boot. 
 
 Measured Boot records a hash of each system component onto the Trusted Platform Module 2.0 (TPM2) as the system boots. This entails measuring each component, using memory locations called Platform Configuration Registers, from the firmware to the boot start drivers, which are then hashed. These measurements are then securely stored in the TPM2, and a log is produced, facilitating remote verification of the client's boot state.
 
@@ -66,17 +66,37 @@ The existing library for writing PE binaries, Objcopy, was replaced with one tha
 The PKCS#11 standard, though effective, is known for its complexity. To simplify the signing process, the Goblin Signing subcrate for Rust has been introduced. It not only streamlines the signing procedure but also adheres to Microsoft's signing scheme, a hierarchical code signing structure based on multiple certificates and certificate authorities. This intricate signing scheme requires careful handling, especially regarding file hashing to prevent vulnerabilities. Goblin Signing, as part of the upstream features, addresses these complexities, ensuring a robust and secure signing process in the UEFI and PE context.
 
 ## A/B Schema in NixOS
-A/B schema in this context refers to general methodologies for facilitating primary and secondary booting, which involves the existence of two distinct boot partitions. During an upgrade, updated content is written to the primary partition. In the event of a boot failure, the system automatically switches to the secondary partition, executing a rollback of the unsuccessful update. This conventional approach safeguards embedded systems from disruptions during upgrades by maintaining two separate boot partitions that are not simultaneously upgraded. Within NixOS and, more specifically, systemd-boot, a mechanism has been implemented that leverages the NixOS generation system to monitor boot occurrences and initiate automatic fallbacks. While not directly related to boot security, this feature is integral to the autonomy of systems on NixOS, impacting both boot functionality and overall security. Its presence is crucial, as it significantly influences users' willingness to engage in boot processes and system upgrades.
+A/B schema, in this context, refers to general methodologies for facilitating primary and secondary booting, which involves the existence of two distinct boot partitions. During an upgrade, updated content is written to the primary partition. In the event of a boot failure, the system automatically switches to the secondary partition, executing a rollback of the unsuccessful update. This conventional approach safeguards embedded systems from disruptions during upgrades by maintaining two separate boot partitions that are not simultaneously upgraded.
+
+ Within NixOS and, more specifically leveraging, systemd-boot, a mechanism has been implemented that generalises this concept to the NixOS generation system to monitor boot occurrences and initiate automatic fallbacks. This feature is referred to as "Automatic Boot Assessment" and it works as follows: During the initial installation of boot entries, they are designated as "indeterminate" and assigned a specific number of boot attempts. With each boot attempt, this count is decremented. If the operating system deems a boot successful, the counter is removed, and the entry is labeled as "good." Conversely, if the designated number of boots is exhausted without a successful boot, the entry is marked as "bad."
+
+The feature can be enabled by toogling the `boot.loader.systemd-boot.bootCounting` option to `true`.
+
+The criterion for a successful boot of an entry is determined by the presence of the `boot-complete.target` value in the NixOS configuration file, which serves as a synchronisation point, that is, a reference point where certain critical tasks or dependencies necessary for the system to function properly have been satisfied. It is the user's responsibility to schedule all required services, called "units" in systemd jargon, to ensure the machine is considered successfully booted before reaching this synchronisation point. To illustrate this, if a machine runs `nsd`, an authoritative DNS server, and the goal is to define a "good" entry as one where this DNS server starts successfully. A configuration for that NixOS machine could look like that:
+
+```
+boot.loader.systemd-boot.bootCounting.enable = true;
+services.nsd.enable = true;
+/* rest of nsd configuration omitted */
+
+systemd.services.nsd = {
+  before = [ "boot-complete.target" ];
+  wantedBy = [ "boot-complete.target" ];
+  unitConfig.FailureAction = "reboot";
+};
+```
+ 
+With the boot-counting feature enabled, systemd-boot will attempt the boot entries in the same sequence as they appear in the boot menu. Consequently, the specialisations of a particular generation will be tried immediately after that generation. It's important to note that marking a generation as bad doesn't automatically designate its specialisations as bad, as these specialisations might still boot successfully.
+
+ It's crucial that this feature is used with the proper judgement in order to avoid any potential data integrity issues. Rolling back to previous generations can be risky, especially if certain services exhibit undefined behavior when faced with unrecognized data migrations from future versions of themselves. While not directly related to boot security, this feature is integral to the autonomy of systems on NixOS, impacting both boot functionality and overall security. Its presence is crucial, as it significantly influences users' willingness to engage in boot processes and system upgrades.
 
 ## Integrity checks in NixOS
 
-While there are ways to integrate Secure Boot with NixOS, they currently fall short when transitioning to Stage 2. The issue stems from the need to include a mechanism for verifying the operating system closure, that is, stored in the Nix store partition or file system. Currently, it is common to simply rely on disk encryption, such as Linux Unified Key Setup (LUKS), to keep the Nix store safe from tampering, but this is not always desirable, e.g. for devices that should boot unattended. Integrity checks are most useful where ensuring that critical files, block devices, and executables remain unaltered and trustworthy such as in environments where the protection of system integrity is a high priority, as in the case of certain embedded systems, servers, or devices that store sensitive data.
+When integrating Secure Boot with NixOS one encounters certain limitations during the transition to Stage 2. This challenge arises from the necessity of implementing a mechanism to verify the operating system closure stored in the Nix store partition or file system. Currently, it is common to simply rely on disk encryption, such as Linux Unified Key Setup (LUKS), to keep the Nix store safe from tampering, but this is not always desirable, e.g. for devices that should boot unattended. Integrity checks are most useful where ensuring that critical files, block devices, and executables remain unaltered and trustworthy such as in environments where the protection of system integrity is a high priority, as in the case of certain embedded systems, servers, or devices that store sensitive data.
 
-There are a variety of tools built into the kernel that can be  considered for this purpose. However, they all come with various tradeoffs some of which include glaring drawbacks for our intented purposes. For instance, one might consider using dm-verity which is a block device layer that utilises a Merkle tree to validate every block by comparing it to an expected hash during reading. However, the drawback is that these block devices are read-only due to the challenge of atomically updating both the Merkle tree and the block device simultaneously. This results in each generation requiring an entire disk image leads to substantial space consumption and sluggish build and update processes. In the same vein, fs-verity is similar to dm-verity, except it operates at the file level, requiring support from the file system driver. While this approach seems promising in theory, it introduces its own set of challenges. Notably, fs-verity lacks the capability to verify the positions of files within the file system. In practical terms, this means it doesn't provide safeguards against unauthorised manipulation of file locations, such as swapping critical binaries like systemd and bash. This vulnerability could potentially be exploited, allowing an attacker to gain unauthorised access, for instance, by executing a shell as Process ID 1 (PID 1).
+Various kernel tools can be considered for system integrity purposes, each with tradeoffs. For instance, dm-verity uses a Merkle tree to validate blocks, but its read-only nature and the challenge of simultaneous updates lead to space-consuming disk images and slow processes. Similarly, fs-verity, which operates at the file level, lacks the ability to verify file positions, posing a security risk. Other tools like Integrity Measurement Architecture (IMA) and Extended Verification Module (EVM) share the benefits and drawbacks with fs-verity, working at the file level without verifying file locations. IMA, however, is less flexible due to rigid policies, making it more suitable for auditing than comprehensive boot verification.
 
-Aside from dm-verity and fs-verity, there are also other tools such as Integrity Measurement Architecture (IMA) and Extended Verification Module (EVM) have essentially the same benefits and drawbacks as fs-verity does, for these purposes. They work at the file level, and they don’t verify the locations of files. It's worth noting that IMA has less flexibility due to its reliance on somewhat rigid policies, making it more suitable as an auditing and measurement tool rather than a comprehensive boot verification tool.
-
-Ultimately, the choosen design uses Nix’s own signature verification system to verify the system closure before transitioning to stage two. This was chosen for its relative simplicity, without compromising security. It’s also extremely easy to build and deploy, given that it’s already a feature of Nix itself.
+Ultimately, the choosen design uses Nix’s own signature verification system (i.e. `nix-store verify`) to verify the system closure before transitioning to stage two. This was chosen for its relative simplicity, without compromising security. It’s also extremely easy to build and deploy, given that it’s already a feature of Nix itself.
 
 During the system's boot process, after the operating system's file  has been mounted, the Nix command-line interface is employed to systematically validate each path within the system closure, ensuring that it possesses a valid Nix signature. This verification process serves the purpose of establishing trust between the initial stage (stage 1) and the subsequent operating system (stage 2) that it is poised to transition to. Importantly, this trust is solidified before permitting the execution of any code from stage 2. The inclusion of this mechanism introduces new NixOS options, namely 
 
@@ -96,9 +116,7 @@ The implementation for these options are reflected in these files:
 - `nixos/modules/system/boot/initrd-verify.nix`  
 - `nixos/modules/system/boot/systemd/initrd.nix`
 
-If you enable this, ensure the key file is only accessible when absolutely necessary.
-
-An example of how this can be used is as follows:
+If you enable this, ensure the key file is only accessible when absolutely necessary. An example of how this can be used is as follows:
 
 First, generate a signing key via the command:
 
@@ -115,10 +133,10 @@ In a NixOS module, configure stage 2 verification.
   };
 }
 ```
-If this machine should self-deploy, then store the secret-key-file somewhere safe and encrypted, and configure the signing.enable and signing.keyFile options. Preferably, this file should only be accessible when it’s time to deploy an update.
+For autonomous deployment, securely store the secret-key file in an encrypted location and set up the `signing.enable` and `signing.keyFile` options. It's advisable to restrict access to this file only when deploying updates.
 
-Otherwise, store this key on the system that will build the system closure, and configure its /etc/nix/nix.conf settings with secret-key-files pointing to the secret. When deploying, make sure to copy the closure’s signatures as well.
+Otherwise, store this key on the system that will build the system closure, and configure its `/etc/nix/nix.conf` settings with `secret-key-files` pointing to the secret. When deploying, make sure to copy the closure’s signatures as well.
 
-Finally, this approach allows to continue using an ordinary Nix store file system, meaning no new disk images need to be constructed, and the system can be used like an ordinary NixOS system. New generations can be added without large storage requirements for every single one, because it’s just an ordinary Nix store. While it does verify stage 2, it does so by delaying boot to read and verify the entire closure. On a fast computer, this takes 5-10 seconds. On a slower system (e.g. a raspberry pi using an SD card for the OS), this can take a few minutes.
+This approach allows one to continue using an ordinary Nix store file system, meaning no new disk images need to be constructed, and the system can be used like an ordinary NixOS system. New generations can be added without large storage requirements for every single one, because it’s just an ordinary Nix store. While it does verify stage 2, it does so by delaying boot to read and verify the entire closure. On a fast computer, this takes 5-10 seconds. On a slower system (e.g. a raspberry pi using an SD card for the OS), this can take a few minutes.
 
 ## Interpreter-less Nix
