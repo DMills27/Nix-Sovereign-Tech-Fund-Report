@@ -1,12 +1,3 @@
-/.DS_Store
-/1\ introduction.md
-/2\ Measured boot.md
-/3\ Bootspec V2.md
-/4\ UEFI\ Secure\ Boot\ by\ default\ for\ NixOS\ installer\ images.md
-/5\ AB\ schema\ in\ NixOS.md
-/6\ Integrity checks for the store.md
-/7\ Interpreter-less NixOS.md
-/PE\ binaries.md
-/images
-/result
-/deafult.nix
+* *.*
+*/*
+*/*
