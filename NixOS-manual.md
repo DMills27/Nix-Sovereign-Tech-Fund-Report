@@ -23,6 +23,13 @@ This led to the development of a feature that would enable UEFI secure boot by d
 2. Then creating an ISO from the NixOS-shim that is then submitted for review by the shim-review committee which is a community-driven solution endorsed by Microsoft, allowing open-source contributors to request signature validation. 
 
 ## Measured Boot
+
+-- Go into greater detail of how measured boot is implemented using a cpio archive. See: 
+- https://mjg59.dreamwidth.org/48897.html ; 
+- https://archive.fosdem.org/2023/schedule/event/image_linux_secureboot_new_ways_of_initrd_build/attachments/slides/5690/export/events/attachments/image_linux_secureboot_new_ways_of_initrd_build/slides/5690/fosdem2023_buildling_initrds_in_a_new_way.pdf ; 
+- https://github.com/nix-community/lanzaboote/pull/168 ; 
+- https://github.com/nix-community/lanzaboote/pull/169
+
 While Secure Boot provides a greater degree of security, it is still susceptible to attacks such as rootkits, which can conceal their presence or the presence of other undesirable software on a computer, or Direct Memory Access (DMA) attacks, which can inject code into memory during the boot process. We can gain a greater level of security through an extra layer of security called Measured Boot. 
 
 Measured Boot records a hash of each system component onto the Trusted Platform Module 2.0 (TPM2) as the system boots. This entails measuring each component, using memory locations called Platform Configuration Registers, from the firmware to the boot start drivers, which are then hashed. These measurements are then securely stored in the TPM2, and a log is produced, facilitating remote verification of the client's boot state.
@@ -46,6 +53,8 @@ Some of these tools include:
 
 
 The main motivation behind Bootspec, in general, is to support a uniform collection of features and design decisions, such as those previously listed, which aren't often supported partially due to the complexity of implementing such features in a particular bootloader, such as those on lower end devices, such as a RaspberryPI or Extlinux. When supported, it is often through globbing directories, that is, by specifying sets of filenames with wildcard characters then utilizing these wildcards to match and locate files according to a predefined pattern. This approach poses several challenges; the main of which is the inherent complexity and significant effort when  introducing new bootloader features or enhancing older ones. Bootspec, thus, addresses the challenges of feature extension in bootloaders, reducing the fragility and maintenance issues associated with disparate public APIs in nixpkgs. 
+
+-- Go into greater details about the differences in V1 vs V2, namely, support for multiple initrds, reworking of the initrd secrets mechanism, inclusion of the devicetree and further iterations of Bootspec. See https://github.com/NixOS/rfcs/pull/165/files for more details.
 
 Bootspec V1, the first iteration of Bootspec, dealt with a number of issues but exhibited gaps, such as the lack of information about device trees, which are data structures used to describe the hardware configuration of a system, particularly in embedded systems and open architecture platforms. Bootspec V2 addresses this by reevaluating the initrd secret feature, which has proven insecure and problematic since it starts to omit a cryptographic key file when upgrading the version of NixOS. In Bootspec V2, the goal is to replace initrd secrets with systemd-creds, which securely stores and retrieves credentials used by systemd units, to significantly enhance security in the NixOS boot process. Users can encrypt these credentials to TPM2, store them in /boot (even on the boot partition), and then have TPM2 unlock them before booting. This approach ensures compatibility with a broader range of systems (such as remote desktops, server farms, etc).
 
@@ -72,7 +81,7 @@ A/B schema, in this context, refers to general methodologies for facilitating pr
 
 The feature can be enabled by toogling the `boot.loader.systemd-boot.bootCounting` option to `true`.
 
-The criterion for a successful boot of an entry is determined by the presence of the `boot-complete.target` value in the NixOS configuration file, which serves as a synchronisation point, that is, a reference point where certain critical tasks or dependencies necessary for the system to function properly have been satisfied. It is the user's responsibility to schedule all required services, called "units" in systemd jargon, to ensure the machine is considered successfully booted before reaching this synchronisation point. To illustrate this, if a machine runs `nsd`, an authoritative DNS server, and the goal is to define a "good" entry as one where this DNS server starts successfully. A configuration for that NixOS machine could look like that:
+The criterion for a successful boot of an entry is determined by the presence of the `boot-complete.target` value in the NixOS configuration file, which serves as a synchronisation point, that is, a reference point where certain critical tasks or dependencies necessary for the system to function properly have been satisfied. It is the user's responsibility to schedule all required services, called "units" in systemd jargon, to ensure the machine has been considered to have booted successfully before reaching this synchronisation point. To illustrate this, if a machine runs `nsd`, an authoritative DNS server, and the goal is to define a "good" entry as one where this DNS server starts successfully. A configuration for that NixOS machine could look like that:
 
 ```
 boot.loader.systemd-boot.bootCounting.enable = true;
@@ -140,3 +149,10 @@ Otherwise, store this key on the system that will build the system closure, and 
 This approach allows one to continue using an ordinary Nix store file system, meaning no new disk images need to be constructed, and the system can be used like an ordinary NixOS system. New generations can be added without large storage requirements for every single one, because it’s just an ordinary Nix store. While it does verify stage 2, it does so by delaying boot to read and verify the entire closure. On a fast computer, this takes 5-10 seconds. On a slower system (e.g. a raspberry pi using an SD card for the OS), this can take a few minutes.
 
 ## Interpreter-less Nix
+
+While the dynamic and flexible nature of interpreters enables the execution of high-level code, in NixOS, it also renders said interpreters susceptible to vulnerabilities, particularly in the form of code injection attacks. The inherent characteristics that make interpreters versatile—such as dynamic code execution, input handling, string manipulation, and features like eval—can, if not carefully managed, expose avenues for malicious code injection. In this context, security lapses in input validation, output handling, and environment interactions, coupled with weak or absent security controls, contribute to interpreters becoming potential points of vulnerability. A central point of vulnerabilty in this regard are the NixOS activation scripts, which are a set of shell script fragments that are executed when a NixOS system configuration is activated, such as after updating `/etc`, creating accounts, and the like. These are executed every time you boot the system or run `nixos-rebuild`. 
+
+To address this issue, we used an initial strategy of removing all Perl scripts in NixOS through a multipronged approach:
+- Replace the Perl script, `setup-etc.pl`, that sets up the `/etc` folder with an OverlayFS mounted in the initrd.
+- Replace the `update-users-groups.pl` script, which , with the functionality from `systemd-sysusers`, which is responsible for creating system users and groups during the system boot process.
+- Replace as many activation scripts as possible. It's strictly necessary to only replace activation scripts dependent on the etc or users activationScripts,however, doing so through the described methods will offer performance and maintainability benefits.
